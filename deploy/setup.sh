@@ -109,8 +109,9 @@ else
   new_site crm.localhost      crm
   new_site helpdesk.localhost helpdesk
   echo
+  PORT="${HTTP_PUBLISH_PORT:-8080}"
   echo "==> Done. Open in your browser:"
-  echo "  http://erp.localhost:8080      (Administrator / $ADMIN_PASSWORD)"
-  echo "  http://crm.localhost:8080      (Administrator / $ADMIN_PASSWORD)"
-  echo "  http://helpdesk.localhost:8080 (Administrator / $ADMIN_PASSWORD)"
+  echo "  http://erp.localhost:$PORT      (Administrator / $ADMIN_PASSWORD)"
+  echo "  http://crm.localhost:$PORT      (Administrator / $ADMIN_PASSWORD)"
+  echo "  http://helpdesk.localhost:$PORT (Administrator / $ADMIN_PASSWORD)"
 fi

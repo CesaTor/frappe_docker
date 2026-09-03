@@ -1,8 +1,8 @@
-# PRODUCTION ONLY — not used by the dev setup (deploy/setup.sh uses :8080 directly).
+# Caddy reverse proxy in front of the Frappe frontend.
 
-# Caddy reverse proxy in front of the Frappe frontend (published on :8080).
+# Must match HTTP_PUBLISH_PORT in deploy/.env (default 8080, prod uses 8060 here).
 
-#
+# If you change HTTP_PUBLISH_PORT, update the reverse_proxy lines below.
 
 # One subdomain per app. Frappe resolves the site by the Host header, so each
 
@@ -31,13 +31,13 @@
 # and use `tls internal` (then trust Caddy's root CA on clients).
 
 erp.requrv.io {
-reverse_proxy localhost:8080
+reverse_proxy localhost:8060
 }
 
 crm.requrv.io {
-reverse_proxy localhost:8080
+reverse_proxy localhost:8060
 }
 
 helpdesk.requrv.io {
-reverse_proxy localhost:8080
+reverse_proxy localhost:8060
 }
