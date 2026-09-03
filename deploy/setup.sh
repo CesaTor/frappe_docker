@@ -77,14 +77,24 @@ echo "==> Waiting for configurator to finish..."
 for i in $(seq 1 30); do
   state=$(docker inspect --format '{{.State.Status}}' "$PROJECT-configurator-1" 2>/dev/null || echo "missing")
   if [ "$state" = "exited" ]; then
+    code=$(docker inspect --format '{{.State.ExitCode}}' "$PROJECT-configurator-1" 2>/dev/null || echo 1)
+    if [ "$code" != "0" ]; then
+      echo "ERROR: configurator failed (exit $code). Logs:" >&2
+      docker logs "$PROJECT-configurator-1" 2>&1 | tail -n 50 >&2
+      exit 1
+    fi
     break
   fi
   sleep 5
 done
 
-# --- 5. Create the three sites ---
+# --- 5. Create the three sites (idempotent: skip if site dir already exists) ---
 new_site() {
   local site="$1" app="$2"
+  if [ -d "$DATA_DIR/sites/$site" ]; then
+    echo "==> Site $site already exists, skipping."
+    return 0
+  fi
   echo "==> Creating site $site (app: $app)..."
   FRAPPE_DATA_DIR="$DATA_DIR" docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T backend \
     bench new-site \
@@ -94,7 +104,6 @@ new_site() {
     --install-app "$app" \
     "$site"
 }
-
 if [ "$ENVIRONMENT" = "prod" ]; then
   new_site "erp.$DOMAIN"      erpnext
   new_site "crm.$DOMAIN"      crm
