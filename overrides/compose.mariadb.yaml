@@ -20,6 +20,13 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
+      # Defensive: disable external file locking. Harmless for a single
+      # in-container instance; avoids lock-file issues if the data dir is
+      # ever shared. (The real cause of error 1033 on macOS is the
+      # case-insensitive bind mount forcing lower_case_table_names=2 —
+      # see deploy/compose.bindmounts.yaml; the db data dir must stay on
+      # a case-sensitive volume.)
+      - --skip-external-locking
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123}
       MARIADB_AUTO_UPGRADE: 1

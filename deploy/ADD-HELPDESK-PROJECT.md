@@ -68,7 +68,7 @@ Caddy issues/renews the Let's Encrypt cert automatically once DNS resolves.
 cd /path/to/frappe_docker
 set -a && source deploy/.env && set +a
 
-docker compose --project-name frappe -f deploy/compose.rendered.yaml exec -T backend \
+docker compose --project-name frappe -f deploy/docker-compose.yaml exec -T backend \
   bench new-site \
   --mariadb-user-host-login-scope=% \
   --db-root-password "$DB_PASSWORD" \
@@ -84,7 +84,7 @@ docker compose --project-name frappe -f deploy/compose.rendered.yaml exec -T bac
 
 ```sh
 # Site exists
-docker compose --project-name frappe -f deploy/compose.rendered.yaml \
+docker compose --project-name frappe -f deploy/docker-compose.yaml \
   exec -T backend ls sites/ | grep "$SITE"
 
 # HTTP 200 through Caddy
@@ -100,15 +100,15 @@ the project's agents, customers, and settings.
 
 ```sh
 # Migrate after an app upgrade
-docker compose --project-name frappe -f deploy/compose.rendered.yaml \
+docker compose --project-name frappe -f deploy/docker-compose.yaml \
   exec -T backend bench --site "$SITE" migrate
 
 # Back up
-docker compose --project-name frappe -f deploy/compose.rendered.yaml \
+docker compose --project-name frappe -f deploy/docker-compose.yaml \
   exec -T backend bench --site "$SITE" backup
 
 # Drop (destructive — archives the site + drops its database)
-docker compose --project-name frappe -f deploy/compose.rendered.yaml \
+docker compose --project-name frappe -f deploy/docker-compose.yaml \
   exec -T backend bench drop-site "$SITE" --force --no-backup --db-root-password "$DB_PASSWORD"
 ```
 

@@ -33,5 +33,6 @@ node_modules
 **/.vitepress/dist
 **/.vitepress/cache
 deploy/docker_data/
+deploy/docker_data.bak-*/
 deploy/build.log
 deploy/setup.log

@@ -3,12 +3,11 @@
 # Deploys a single Frappe bench hosting three sites: ERPNext, CRM, Helpdesk.
 #
 # Two targets, selected by ENVIRONMENT in deploy/.env:
-#   dev  (default) -> host arch, arm64 override on Apple Silicon, *.localhost sites, no proxy.
-#   prod          -> linux/amd64, no arm64 override, real subdomain sites (<app>.<DOMAIN>).
+#   dev  -> host arch (*.localhost sites, no proxy, deploy/docker-compose.local.yaml)
+#   prod -> host arch (real subdomains <app>.<DOMAIN>, deploy/docker-compose.yaml + Caddy)
 #
 # Usage:
-#   1. cp deploy/.env.example deploy/.env   (then set DB_PASSWORD, ADMIN_PASSWORD,
-#      ENVIRONMENT, DOMAIN)
+#   1. cp deploy/.env.example deploy/.env  (set DB_PASSWORD, ADMIN_PASSWORD, ENVIRONMENT, DOMAIN)
 #   2. bash deploy/setup.sh
 #
 set -euo pipefail
@@ -26,9 +25,16 @@ ENVIRONMENT="${ENVIRONMENT:-dev}"
 DOMAIN="${DOMAIN:-requrv.io}"
 IMAGE="${CUSTOM_IMAGE:-frappe-requrv}:${CUSTOM_TAG:-16}"
 
+# Pick compose file — no merging, no rendered artifact.
+if [ "$ENVIRONMENT" = "prod" ]; then
+  COMPOSE_FILE=deploy/docker-compose.yaml
+else
+  COMPOSE_FILE=deploy/docker-compose.local.yaml
+fi
+
 # --- 1. Build the custom image (frappe + erpnext + crm + telephony + helpdesk) ---
 # Skips the build if the image already exists locally (re-runs are fast).
-# prod builds explicitly for linux/amd64; dev builds for the host arch.
+# prod pins linux/amd64; dev builds for the host arch.
 if docker image inspect "$IMAGE" >/dev/null 2>&1; then
   echo "==> Custom image $IMAGE already present, skipping build."
 else
@@ -47,31 +53,20 @@ else
     --file=images/layered/Containerfile .
 fi
 
-# --- 2. Render the compose file ---
-# The arm64 override is only for Apple Silicon dev. prod keeps the default amd64.
-ARM64_OVERRIDE=()
-if [ "$ENVIRONMENT" = "dev" ]; then
-  ARM64_OVERRIDE=(-f deploy/compose.arm64.yaml)
-fi
-echo "==> Rendering compose file (environment: $ENVIRONMENT)..."
-docker compose --env-file "$ENV_FILE" \
-  -f compose.yaml \
-  -f overrides/compose.mariadb.yaml \
-  -f overrides/compose.redis.yaml \
-  -f overrides/compose.noproxy.yaml \
-  "${ARM64_OVERRIDE[@]}" \
-  config > deploy/compose.rendered.yaml
+# --- 2. Prepare bind-mount data dirs ---
+DATA_DIR="$(cd "$(dirname "$0")" && pwd)/docker_data"
+mkdir -p "$DATA_DIR/sites" "$DATA_DIR/redis-queue" "$DATA_DIR/db-backups"
 
 # --- 3. Start the stack ---
-# --pull=missing: use the locally built image; only pull if it's absent
-# (Compose v5 ignores the pull_policy field and pulls by default).
-echo "==> Starting containers..."
-docker compose --project-name "$PROJECT" -f deploy/compose.rendered.yaml up -d --pull=missing
+# --pull=missing: use the locally built image; only pull if absent
+# (Compose v5 ignores pull_policy).
+echo "==> Starting containers (compose: $COMPOSE_FILE, env: $ENVIRONMENT)..."
+FRAPPE_DATA_DIR="$DATA_DIR" docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --pull=missing
 
 # --- 4. Wait for db + configurator ---
 echo "==> Waiting for db to become healthy..."
 for i in $(seq 1 60); do
-  if docker compose --project-name "$PROJECT" -f deploy/compose.rendered.yaml \
+  if FRAPPE_DATA_DIR="$DATA_DIR" docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" \
       exec -T db healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1; then
     break
   fi
@@ -91,7 +86,7 @@ done
 new_site() {
   local site="$1" app="$2"
   echo "==> Creating site $site (app: $app)..."
-  docker compose --project-name "$PROJECT" -f deploy/compose.rendered.yaml exec -T backend \
+  FRAPPE_DATA_DIR="$DATA_DIR" docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T backend \
     bench new-site \
     --mariadb-user-host-login-scope=% \
     --db-root-password "$DB_PASSWORD" \
@@ -101,7 +96,6 @@ new_site() {
 }
 
 if [ "$ENVIRONMENT" = "prod" ]; then
-  # Site names must match the hostnames exactly (Frappe is host-based).
   new_site "erp.$DOMAIN"      erpnext
   new_site "crm.$DOMAIN"      crm
   new_site "helpdesk.$DOMAIN" helpdesk
