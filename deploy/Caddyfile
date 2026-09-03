@@ -1,0 +1,43 @@
+# PRODUCTION ONLY — not used by the dev setup (deploy/setup.sh uses :8080 directly).
+
+# Caddy reverse proxy in front of the Frappe frontend (published on :8080).
+
+#
+
+# One subdomain per app. Frappe resolves the site by the Host header, so each
+
+# app needs its own hostname — sub-path routing like /crm is NOT supported.
+
+#
+
+# Setup:
+
+# 1. Point DNS A/AAAA records for all three domains at this server.
+
+# 2. Place this file at /etc/caddy/Caddyfile and `systemctl reload caddy`.
+
+# 3. Caddy obtains and renews Let's Encrypt certificates automatically.
+
+#
+
+# IMPORTANT: the Frappe site names must match these hostnames exactly.
+
+# Create the sites as: erp.requrv.io, crm.requrv.io, helpdesk.requrv.io
+
+#
+
+# Local/LAN: replace the domains with local names, add them to /etc/hosts,
+
+# and use `tls internal` (then trust Caddy's root CA on clients).
+
+erp.requrv.io {
+reverse_proxy localhost:8080
+}
+
+crm.requrv.io {
+reverse_proxy localhost:8080
+}
+
+helpdesk.requrv.io {
+reverse_proxy localhost:8080
+}

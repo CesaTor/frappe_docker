@@ -32,3 +32,6 @@ node_modules
 # VitePress
 **/.vitepress/dist
 **/.vitepress/cache
+deploy/docker_data/
+deploy/build.log
+deploy/setup.log
